@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>LD1 — Island castle</title>
+    <script type="text/javascript" src="libs/three.js"></script>
+    <script type="text/javascript" src="libs/jquery-1.9.0.js"></script>
+    <script type="text/javascript" src="libs/stats.js"></script>
+    <script type="text/javascript" src="libs/dat.gui.js"></script>
+    <script type="text/javascript" src="libs/TrackballControls.js"></script>
+    <style>
+        body{
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<div id="Stats-output">
+</div>
+<!-- div which will hold the output -->
+<div id="WebGL-output">
+</div>
+
+<script type="text/javascript">
+    $(function () {
+        function createCastle() {
+            var wallMaterial = new THREE.MeshLambertMaterial({color: 0x898989});
+            var roofMaterial = new THREE.MeshLambertMaterial({color: 0xff0000});
+
+            function createTower() {
+                // create tower cylinder
+
+                var towerHeight = 46;
+                var radius = 10;
+
+                var tower = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, towerHeight, 20),  wallMaterial);
+                tower.castShadow = true;
+
+                tower.position.y = 5;
+
+                // create roof
+
+                var roof = new THREE.Mesh(new THREE.CylinderGeometry(0, radius, 16, 20), roofMaterial);
+                roof.castShadow = true;
+
+                roof.position.y = towerHeight - 15;
+
+                tower.add(roof);
+
+                return tower;
+            }
+
+            function createWall(wallWidth) {
+                // create wall itself
+
+                var wallHeight = 18;
+                var wallDepth = 10;
+
+                var wallGeometry = new THREE.CubeGeometry(wallWidth, wallHeight, wallDepth);
+                var wall = new THREE.Mesh(wallGeometry, wallMaterial);
+                wall.castShadow = true;
+
+                wall.position.y = wallHeight / 2;
+
+                // create and add basements to the wall
+
+                var battlementSize = 4;
+
+                var battlementGeometry = new THREE.CubeGeometry(battlementSize, battlementSize, battlementSize);
+
+                for (var x = 13 + -(wallWidth / 2) + battlementSize / 2; x < wallWidth / 2 - 10; x += battlementSize * 2) {
+                    var battlement = new THREE.Mesh(battlementGeometry, wallMaterial);
+                    battlement.castShadow = true;
+
+                    battlement.position.set(x, wallHeight / 2 + battlementSize / 2, wallDepth / 2 - battlementSize / 2);
+                    wall.add(battlement);
+                }
+
+                // add tower to the right end of the wall
+
+                var tower = createTower();
+
+                tower.position.x = wallWidth / 2;
+
+                wall.add(tower);
+
+                return wall;
+            }
+
+            function createGate() {
+                var gateBuildingWidth = 35;
+                var gateBuildingHeight = 30;
+                var gateBuildingDepth = 35;
+
+                var gateBuilding = new THREE.Mesh(new THREE.CubeGeometry(gateBuildingWidth, gateBuildingHeight, gateBuildingDepth), wallMaterial);
+                gateBuilding.castShadow = true;
+
+                gateBuilding.position.y = gateBuildingHeight / 2;
+
+                // create gates (2D ellipses) for both sides
+
+                var ellipse = new THREE.EllipseCurve(0, 0, 13, 25, 0, Math.PI);
+                var ellipsePath = new THREE.Path(ellipse.getPoints(50));
+
+                var gateGeometry = new THREE.ShapeGeometry(ellipsePath.toShapes()[0]);
+                var gateMaterial = new THREE.MeshBasicMaterial({ color: 0x4e3100 });
+
+                var outerGate = new THREE.Mesh(gateGeometry, gateMaterial);
+                var innerGate = new THREE.Mesh(gateGeometry, gateMaterial);
+
+                outerGate.position.set(0, -gateBuildingHeight / 2, gateBuildingDepth / 2 + 0.2);
+
+                gateBuilding.add(outerGate);
+
+                innerGate.rotation.y = Math.PI; // rotate because only one side is rendered
+                innerGate.position.set(0, -gateBuildingHeight / 2, -gateBuildingDepth / 2 - 0.2);
+
+                gateBuilding.add(innerGate);
+
+                // create roof
+
+                var roof = new THREE.Mesh(new THREE.CylinderGeometry(0, 25, 16, 4), roofMaterial);
+                roof.castShadow = true;
+
+                roof.rotation.y = 0.25*Math.PI;
+                roof.position.y = gateBuildingHeight / 2 + 8;
+
+                gateBuilding.add(roof);
+
+                return gateBuilding;
+            }
+
+            function createMainBuilding() {
+                var buildingWidth = 78;
+                var buildingHeight = 45;
+                var buildingDepth = 58;
+                var roofHeight = 36;
+
+                function createRoof() {
+                    var roofGeometry = new THREE.Geometry();
+
+                    roofGeometry.vertices.push(new THREE.Vector3(buildingWidth / 2, 0, -buildingDepth / 2));
+                    roofGeometry.vertices.push(new THREE.Vector3(0, roofHeight, -buildingDepth / 2));
+                    roofGeometry.vertices.push(new THREE.Vector3(buildingWidth / 2, 0, buildingDepth / 2));
+                    roofGeometry.vertices.push(new THREE.Vector3(0, roofHeight, buildingDepth / 2));
+
+                    roofGeometry.faces.push(new THREE.Face3(0, 1, 2));
+                    roofGeometry.faces.push(new THREE.Face3(3, 2, 1));
+                    roofGeometry.computeFaceNormals();
+
+                    var roof = new THREE.Mesh(roofGeometry, roofMaterial);
+                    roof.castShadow = true;
+
+                    return roof;
+                }
+
+                function createUpperPart() {
+                    var upperPartGeometry = new THREE.Geometry();
+
+                    upperPartGeometry.vertices.push(new THREE.Vector3(-buildingWidth / 2, 0, 0));
+                    upperPartGeometry.vertices.push(new THREE.Vector3(buildingWidth / 2, 0, 0));
+                    upperPartGeometry.vertices.push(new THREE.Vector3(0, roofHeight, 0));
+
+                    upperPartGeometry.faces.push(new THREE.Face3(0, 1, 2));
+                    upperPartGeometry.computeFaceNormals();
+
+                    var upperPart = new THREE.Mesh(upperPartGeometry, wallMaterial);
+                    upperPart.castShadow = true;
+
+                    return upperPart;
+                }
+
+                function createWindow(xRadius, yRadius, material) {
+                    var ellipse = new THREE.EllipseCurve(0, 0, xRadius, yRadius, 0, Math.PI);
+                    var ellipsePath = new THREE.Path(ellipse.getPoints(50));
+
+                    var windowGeometry = new THREE.ShapeGeometry(ellipsePath.toShapes()[0]);
+
+                    return new THREE.Mesh(windowGeometry, material);
+                }
+
+                var building = new THREE.Mesh(new THREE.CubeGeometry(buildingWidth, buildingHeight, buildingDepth), wallMaterial);
+                building.castShadow = true;
+
+                building.position.y = buildingHeight / 2;
+
+                // add upper part of the building (2D truangles)
+
+                var frontUpperBuildingPart = createUpperPart();
+                var backUpperBuildingPart = createUpperPart();
+
+                frontUpperBuildingPart.position.set(0, buildingHeight / 2, buildingDepth / 2);
+
+                building.add(frontUpperBuildingPart);
+
+                backUpperBuildingPart.rotation.y = Math.PI; // rotate because only one side is rendered
+                backUpperBuildingPart.position.set(0, buildingHeight / 2, -buildingDepth / 2);
+
+                building.add(backUpperBuildingPart);
+
+                // add roof (left and right sides)
+
+                var rightRoof = createRoof();
+                var leftRoof = createRoof();
+
+                rightRoof.position.set(0, buildingHeight, 0);
+                rightRoof.position.y = buildingHeight / 2;
+
+                building.add(rightRoof);
+
+                leftRoof.rotation.y = Math.PI;
+                leftRoof.position.y = buildingHeight / 2;
+
+                building.add(leftRoof);
+
+                // create door
+
+                var door = new THREE.Mesh(new THREE.PlaneGeometry(20, 26), new THREE.MeshLambertMaterial({color: 0x4e3100}));
+
+                door.position.z = buildingDepth / 2 + 0.2;
+                door.position.y = -10;
+
+                building.add(door);
+
+                // add windows
+
+                var windowMaterial = new THREE.MeshBasicMaterial({ color: 0x253D4C });
+
+                var windowXRadius = 4;
+                var windowYRadius = 11;
+                var windowMargin = 19;
+                var windowY = 9;
+
+                // front side
+                var x;
+                for (x = -buildingWidth / 2 + windowMargin; x < buildingWidth / 2 - windowMargin; x += windowMargin) {
+                    wind = createWindow(windowXRadius, windowYRadius, windowMaterial);
+
+                    wind.position.set(x, windowY, buildingDepth / 2 + 0.2);
+
+                    building.add(wind);
+                }
+
+                // left side
+                var z;
+                for (z = -buildingDepth / 2 + windowMargin; z < buildingDepth / 2 - windowMargin; z += windowMargin) {
+                    wind = createWindow(windowXRadius, windowYRadius, windowMaterial);
+
+                    wind.rotation.y = -0.5*Math.PI;
+                    wind.position.set(-buildingWidth / 2 - 0.2, windowY, z);
+
+                    building.add(wind);
+                }
+
+                // right side
+                for (z = -buildingDepth / 2 + windowMargin; z < buildingDepth / 2 - windowMargin; z += windowMargin) {
+                    wind = createWindow(windowXRadius, windowYRadius, windowMaterial);
+
+                    wind.rotation.y = 0.5*Math.PI;
+                    wind.position.set(buildingWidth / 2 + 0.2, windowY, z);
+
+                    building.add(wind);
+                }
+
+                // a bigger window on front side upper part
+
+                wind = createWindow(8, 24, windowMaterial);
+
+                wind.position.set(0, 26, buildingDepth / 2 + 0.2);
+
+                building.add(wind);
+
+                return building;
+            }
+
+            var castle = new THREE.Object3D();
+
+            var wallWidth = 125;
+
+            var leftWall = createWall(wallWidth);
+            var rightWall = createWall(wallWidth);
+            var frontWall = createWall(wallWidth);
+            var backWall = createWall(wallWidth);
+
+            // set walls position
+
+            frontWall.position.z = wallWidth / 2;
+            castle.add(frontWall);
+
+            leftWall.rotation.y = -0.5*Math.PI;
+            leftWall.position.x = -wallWidth / 2;
+            castle.add(leftWall);
+
+            backWall.rotation.y = -1*Math.PI;
+            backWall.position.z = -wallWidth / 2;
+            castle.add(backWall);
+
+            rightWall.rotation.y = 0.5*Math.PI;
+            rightWall.position.x = wallWidth / 2;
+            castle.add(rightWall);
+
+            // add gate
+
+            var gate = createGate();
+
+            castle.add(gate);
+
+            gate.position.z = frontWall.position.z;
+
+            // add main castle building
+
+            var building = createMainBuilding();
+
+            building.position.z = -15;
+
+            castle.add(building);
+
+            return castle;
+        }
+
+        function createIsland() {
+            var island = new THREE.Mesh(new THREE.CylinderGeometry(103, 143, 10, 80),  new THREE.MeshLambertMaterial({color: 0x00ff00}));
+            island.receiveShadow = true;
+
+            return island;
+        }
+
+        function createBoat(boatColor) {
+            // create boat
+
+            var boatWidth = 36;
+            var boatHeight = 10;
+            var boatDepth = 10;
+
+            var boatMaterial = new THREE.MeshLambertMaterial({color: boatColor});
+
+            var boat = new THREE.Mesh(new THREE.CubeGeometry(boatWidth, boatHeight, boatDepth), boatMaterial);
+            boat.castShadow = true;
+
+            boat.position.y = boatHeight / 2;
+
+            // create sail
+
+            var sailGeometry = new THREE.Geometry();
+
+            sailGeometry.vertices.push(new THREE.Vector3(0, 0, 0));
+            sailGeometry.vertices.push(new THREE.Vector3(boatWidth + 3, 0, 0));
+            sailGeometry.vertices.push(new THREE.Vector3(boatWidth + 3, 36, 0));
+            // a 2D object (with material.side = DoubleSide) is not enough because shadow works only for one side
+            sailGeometry.vertices.push(new THREE.Vector3(0, 0, 0.1));
+            sailGeometry.vertices.push(new THREE.Vector3(boatWidth + 3, 0, 0.1));
+            sailGeometry.vertices.push(new THREE.Vector3(boatWidth + 3, 36, 0.1));
+
+            sailGeometry.faces.push(new THREE.Face3(0, 1, 2));
+            sailGeometry.faces.push(new THREE.Face3(5, 4, 3));
+            sailGeometry.computeFaceNormals();
+
+            var sailMaterial = new THREE.MeshLambertMaterial({color:0xffffff});
+
+            var sail = new THREE.Mesh(sailGeometry, sailMaterial);
+            sail.castShadow = true;
+
+            sail.position.set(-boatWidth / 2 - 8, boatHeight / 2, 0);
+
+            boat.add(sail);
+
+            // create front part
+
+            var bowGeometry = new THREE.Geometry();
+            bowGeometry.vertices.push(new THREE.Vector3(0, boatHeight / 2, boatDepth / 2));
+            bowGeometry.vertices.push(new THREE.Vector3(0, -boatHeight / 2, boatDepth / 2));
+            bowGeometry.vertices.push(new THREE.Vector3(0, boatHeight / 2, -boatDepth / 2));
+            bowGeometry.vertices.push(new THREE.Vector3(0, -boatHeight / 2, -boatDepth / 2));
+            bowGeometry.vertices.push(new THREE.Vector3(-15, boatHeight / 2, 0));
+
+            bowGeometry.faces.push(new THREE.Face3(0, 2, 4));
+            bowGeometry.faces.push(new THREE.Face3(4, 1, 0));
+            bowGeometry.faces.push(new THREE.Face3(4, 3, 1));
+            bowGeometry.faces.push(new THREE.Face3(2, 3, 4));
+            bowGeometry.computeFaceNormals();
+
+            var bow = new THREE.Mesh(bowGeometry, boatMaterial);
+            bow.castShadow = true;
+
+            bow.position.set(-boatWidth / 2, 0, 0);
+
+            boat.add(bow);
+
+            return boat;
+        }
+
+        function rotateBoat(boat) {
+            boat.rotation.y = boat.rotation.y === 0 ? Math.PI : 0; // rotate to opposite direction
+
+            boat.step *= -1;
+        }
+
+        function addLight(scene) {
+            var hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.6);
+            hemiLight.position.set(0, 500, 0);
+
+            scene.add(hemiLight);
+
+            var dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight.castShadow = true;
+            dirLight.position.set(265, 150, -265);
+
+            dirLight.shadowMapWidth = 8192;
+            dirLight.shadowMapHeight = 8192;
+
+            var lightDist = 800;
+            dirLight.shadowCameraLeft = -lightDist;
+            dirLight.shadowCameraRight = lightDist;
+            dirLight.shadowCameraTop = lightDist;
+            dirLight.shadowCameraBottom = -lightDist;
+
+            dirLight.shadowCameraFar = 3500;
+            dirLight.shadowBias = 0.001;
+            dirLight.shadowDarkness = 0.35;
+
+            scene.add(dirLight);
+        }
+
+        function initStats() {
+            var stats = new Stats();
+
+            stats.setMode(0); // 0: fps, 1: ms
+
+            // Align top-left
+            stats.domElement.style.position = 'absolute';
+            stats.domElement.style.left = '0px';
+            stats.domElement.style.top = '0px';
+
+            $("#Stats-output").append( stats.domElement );
+
+            return stats;
+        }
+
+        var scene = new THREE.Scene();
+
+        var renderer = new THREE.WebGLRenderer({antialias: true});
+
+        renderer.setClearColor(0x9fd2f1, 1.0); // sky color
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMapEnabled = true;
+
+        var planeGeometry = new THREE.PlaneGeometry(1000, 500);
+        var planeMaterial = new THREE.MeshLambertMaterial({color: 0x1acffa}); // water color
+        var plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        plane.receiveShadow  = true;
+
+        plane.rotation.x = -0.5*Math.PI;
+
+        scene.add(plane);
+
+        var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
+        camera.position.x = 0;
+        camera.position.y = 165;
+        camera.position.z = 235;
+        camera.lookAt(scene.position);
+
+        // add island and castle
+
+        var island = createIsland();
+
+        island.position.z = -50;
+
+        scene.add(island);
+
+        var castle = createCastle();
+
+        castle.position.y = 5;
+
+        island.add(castle);
+
+        // add 3 boats
+
+        var boats = [ createBoat(0x7f0000), createBoat(0xffd800), createBoat(0xffffff)];
+
+        boats[0].position.z = -200;
+        boats[0].position.x = 160;
+
+        boats[1].position.z = 95;
+        boats[1].position.x = 100;
+
+        boats[2].position.z = 116;
+        boats[2].position.x = -100;
+
+        boats.forEach(function(boat) {
+            boat.step = -1;
+
+            scene.add(boat);
+        });
+
+        rotateBoat(boats[2]);
+
+        addLight(scene);
+
+        // add the output of the renderer to the html element
+        $("#WebGL-output").append(renderer.domElement);
+
+        // add ability to rotate/move/zoom camera
+        var cameraControls = new THREE.TrackballControls(camera, renderer.domElement);
+        cameraControls.rotateSpeed = 1.0;
+        cameraControls.zoomSpeed = 1.0;
+        cameraControls.panSpeed = 1.0;
+        cameraControls.noZoom = false;
+        cameraControls.noPan = false;
+        cameraControls.staticMoving = true;
+        cameraControls.dynamicDampingFactor = 0.3;
+
+        // create controls to control boats speed
+
+        var controls = new function() {
+            this.windSpeed = 1;
+        };
+
+        var gui = new dat.GUI();
+        var speedControl = gui.add(controls, 'windSpeed', 0.05, 3);
+        speedControl.listen();
+        speedControl.onChange(function() {
+            boats.forEach(function(boat) {
+                boat.step = boat.step < 0 ? -controls.windSpeed : controls.windSpeed;
+            });
+        });
+
+        var stats = initStats();
+
+        render();
+
+        function render() {
+            stats.update();
+
+            cameraControls.update();
+
+            // move boats
+            boats.forEach(function(boat) {
+                boat.position.x += boat.step;
+
+                // rotate to opposite direction when reached some point far from the center
+                if (Math.abs(boat.position.x) > 300) {
+                    rotateBoat(boat);
+                }
+            });
+
+            requestAnimationFrame(render);
+            renderer.render(scene, camera);
+        }
+    });
+
+</script>
+</body>
+</html>

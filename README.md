@@ -2,7 +2,7 @@
 
 A castle on an island and three moving boats. Speed can be changed via controls in the top right corner (it also depends on FPS).
 
-![](https://i.gyazo.com/3e825eaf4449d7750e51b62a5df741e6.gif)
+![](https://i.imgur.com/DiJFKEi.png)
 
 Can be run here: [https://alexp11223.github.io/Three.js_IslandCastle/index.html](https://alexp11223.github.io/Three.js_IslandCastle/index.html)
 

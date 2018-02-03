@@ -1,4 +1,4 @@
-*A simple scene implemented using Three.js following J. Dirksen book "Learning Three.js" several years ago during Computer Graphics course in university. Uses old version of Three.js and other libs, I don't know if it is compatible with modern versions.*
+*A simple scene implemented with Three.js several years ago during Computer Graphics course in university following J. Dirksen book "Learning Three.js". Uses old version of Three.js and other libs, I don't know if it is compatible with modern versions.*
 
 A castle on an island and three moving boats. Speed can be changed via controls in the top right corner (it also depends on FPS).
 
